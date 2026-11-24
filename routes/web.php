@@ -1,0 +1,18 @@
+<?php
+
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HomeController;
+use App\Http\Middleware\EnsureAdmin;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', HomeController::class)->name('home');
+
+Route::middleware('guest')->group(function (): void {
+    Route::get('/login', [AuthController::class, 'create'])->name('login');
+    Route::post('/login', [AuthController::class, 'store'])->middleware('throttle:login')->name('login.store');
+});
+Route::middleware(['auth', EnsureAdmin::class])->group(function (): void {
+    Route::get('/admin', DashboardController::class)->name('dashboard');
+    Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
+});
