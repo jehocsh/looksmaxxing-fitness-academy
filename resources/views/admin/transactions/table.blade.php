@@ -1,0 +1,4 @@
+<div class="table-wrap"><table><thead><tr><th>Reference / Date</th><th>Member</th><th>Type / Plan</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody>
+@forelse($transactions as $transaction)<tr><td class="reference-cell">{{ $transaction->reference_no }}<small class="table-secondary">{{ $transaction->created_at->format('d M Y, g:i A') }}</small></td><td>{{ $transaction->member->full_name }}</td><td>{{ ucfirst($transaction->type) }}<small class="table-secondary">{{ $transaction->level_name }}</small></td><td>₱{{ number_format($transaction->total_cents / 100, 2) }}</td><td><span class="pill status-{{ $transaction->status }}">{{ ucfirst($transaction->status) }}</span></td><td><a class="text-link" href="{{ route('transactions.show', $transaction) }}">Open ↗</a></td></tr>
+@empty<tr><td colspan="6" class="empty-state"><strong>No transactions yet.</strong><p>New applications and renewals will appear here.</p></td></tr>@endforelse
+</tbody></table></div>

@@ -8,7 +8,73 @@ Completed: MySQL schema and models, seed plans and discounts, transactional memb
 
 Not yet completed: member/category/level CRUD screens, public application form, payment/renewal screens, printable receipts, live maps/weather/email, and public deployment. The transaction service is tested independently of those future screens. Do not present this checkpoint as the completed project.
 
-EthioDeploy Free is the deployment target. Its account still needs to be created by the owner. No remote repository or deployment has been created.
+EthioDeploy Free is the deployment target. The owner has now created the account and hosting project. The private GitHub source repository is https://github.com/jehocsh/looksmaxxing-fitness-academy (deployed branch: main). The assigned public address is https://looksmaxxing-fitness-academy.ethiodeploy.app. The last observed hosting screenshot showed BUILDING from commit 8171a4d; a successful public deployment has NOT been verified.
+
+## PAUSED: resume checkpoint (November 24, 2026)
+
+The user explicitly requested STOP because their usage was running out. Do not resume work until they ask. They want to continue the same project later, without repeating setup or decisions. Their deadline is November 25, 2026 at 11:59 PM, Manila time (UTC+8).
+
+### Agreed product and constraints
+
+- Gym name: LooksMaxxing, subtitle Fitness Academy. Location: Tondo, Manila, area only; no street address was provided. Currency: PHP.
+- Palette reference: blue, charcoal, red, off-white, orange. Current CSS uses #4756d7, #211d1b, #ee3537, #eeedeb, #e9831c respectively.
+- Strict zero spending. Free plans only. MySQL is mandatory; do not switch to PostgreSQL or MariaDB. Render and Aiven were considered and superseded by EthioDeploy Free with its included MySQL addon.
+- Public gym site and application form, plus administrator login/dashboard. No member portal, online payment gateway, class booking, or coaching scheduling was requested. Payments are manual staff records for cash, GCash, and bank transfer.
+- Four 30-day plans: Basic PHP700 (strength equipment), Silver PHP1000 (strength/cardio), Gold PHP1500 (all equipment/group classes), Platinum PHP2500 (Gold benefits/four coaching sessions). Benefits are descriptions.
+- Category discounts: Regular 0%, Student 10%, Senior Citizen 20%, Corporate 15%; one category per member and no stacked discounts. Preserve financial snapshots. Membership starts after full payment and administrator approval; active renewals extend the current expiry and expired memberships restart on approval.
+- Integrations planned: Google Maps Demo Key (eligible personal Google account, prototype use only, no billing), OpenWeather free Current Weather via Laravel, Brevo Free HTTPS transactional email with a database queue dispatched after commit. Actual API keys/sender verification have NOT been supplied or tested.
+- Tondo area center was obtained from OpenStreetMap Nominatim: latitude 14.6189095, longitude 120.9660386. It is an area center, not an exact gym location.
+
+### What is verified and uploaded
+
+- Repository initialized on local branch codex/looksmaxxing-foundation, tracking origin/main. Private GitHub repository was created using the computer's existing authorized GitHub sign-in (account jehocsh). Never display Git credentials.
+- Commit 94659f0: verified foundation, including six core tables, models, factories, plan/category seed data, transactional membership service, staff authentication, landing page, and overview dashboard.
+- Commit 8171a4d: free EthioDeploy startup script, private first-administrator bootstrap, production HTTPS URL generation, gym config, and environment placeholders. Both commits were pushed to remote main.
+- Last COMPLETE verified suite before new screen work: 28 tests / 94 assertions passed on actual MySQL. A later narrow foundation run passed 26 tests / 92 assertions before the latest unverified screen changes.
+- Frontend npm build passed, with no dependency vulnerabilities reported. Browser checks of the foundation passed sign-in, logout, and 390-pixel mobile overflow checks; zero page errors. Four screenshots are in the parent outputs folder: looksmaxxing-desktop.png, looksmaxxing-mobile.png, looksmaxxing-login.png, looksmaxxing-dashboard.png.
+
+### Hosting handoff: exact last user step
+
+1. User created EthioDeploy account through GitHub and selected jehocsh/looksmaxxing-fitness-academy, branch main, Web Service, Builder Auto, repository root. They were told to clear custom install/build commands and set Start Command to sh start-ethiodeploy.sh.
+2. User's screenshot showed the project building from 8171a4d at the public address above.
+3. User was instructed to add the included Free / 512MB MySQL addon under Addons. Actual creation/readiness has NOT been confirmed.
+4. User asked whether to add APP_URL under Env Vars. They were told to use https://looksmaxxing-fitness-academy.ethiodeploy.app and responded OK; the saved host setting was not independently inspected.
+5. LAST INSTRUCTION before pause: in Env Vars add APP_ENV=production, APP_DEBUG=false, DB_CONNECTION=mysql, SESSION_SECURE_COOKIE=true, QUEUE_CONNECTION=database, and save. The user has NOT confirmed completing these five entries.
+6. NEXT HOSTING STEP: guide them to add ADMIN_EMAIL and ADMIN_PASSWORD privately in EthioDeploy (minimum 12-character password), then save/redeploy after verifying the MySQL addon. Do not ask them to paste secrets. Database connection details come from the addon-provided DATABASE_URL, already supported by config/database.php.
+7. Production administrator initialization is handled by looksmaxxing:bootstrap-admin in the startup script, only when no administrator exists. It does not reset an existing password. The bootstrap password can be removed from host settings after setup.
+8. Public website availability, production MySQL, staff login, worker operation, and live API delivery all remain unverified.
+
+### Unfinished local work saved at pause (NOT deployed)
+
+The next work batch was written but NOT fully integrated, tested, or pushed. A local-only WIP checkpoint follows 8171a4d. Do NOT push it until finished and tested.
+
+- Controllers: ApplicationController, MemberController, CategoryController, LevelController, TransactionController, PaymentController, WeatherController.
+- Validation requests: StoreApplicationRequest, StoreMemberRequest, StoreCategoryRequest, StoreLevelRequest, StorePaymentRequest.
+- Routes expanded to 32 verified route registrations: public application/weather; member CRUD/reactivation/renewal/reapplication; category/level CRUD; transaction list/detail/approval/cancellation/printable record; payment recording.
+- MembershipService gained a centavo parsing helper; its original business rules remain in place.
+- Queued MembershipApplicationSubmitted notification, custom BrevoChannel, email Blade template, and config/services.php entries were written. OpenWeather controller has coordinate validation, cache, timeout, restricted response fields, and friendly failure handling. Actual execution of these new integrations is untested.
+- New Blade views: layouts/admin, membership/apply, membership/fields, membership/location, admin member index/form/profile, category/level management, transaction index/table/detail/receipt, email application acknowledgment.
+- STILL MISSING: public/js/app.js and its inclusion in layouts/site; the @stack('scripts') slot for Google Maps; quote preview/map/weather/confirmation/print interactions; CSS for the new admin/forms/catalog/receipt/location classes; dashboard conversion to layouts/admin; homepage links to apply and location widget integration.
+- IntegrationTest.php and MembershipScreensTest.php are only GENERATED STUBS. They must be replaced with meaningful tests; their existence is NOT evidence of coverage.
+- Review active/inactive category validation for existing members, transaction expiry when opening detail/profile, payment duplicate handling, mobile layouts, print layout, and new form behavior. Add tests before declaring the next batch complete.
+- README's general Completed/Not yet completed paragraphs describe the VERIFIED foundation; the unfinished batch above is only partial progress.
+
+### Local environment and restart information
+
+- Workspace: C:/Users/Josh/Documents/Codex/2026-11-24/ok-x20. App: outputs/looksmaxxing. Scratch/runtime helpers: work/.
+- Existing XAMPP PHP is 8.2.12 and was not changed. Downloaded verified portable PHP 8.4.28 under work/runtime/php and official MySQL 8.4.13.1 under work/runtime/mysql-8.4.13.1-winx64. These are free project-local tools, not global installs.
+- MySQL binds only to 127.0.0.1:3307. Application database looksmaxxing; separate test database looksmaxxing_testing. TestCase refuses to run on another engine/database.
+- Development preview binds to http://127.0.0.1:8000. Both local servers were still running at pause. Restart through outputs/looksmaxxing/Start-Local.ps1 if needed.
+- Private values are in .env, .env.testing, and LOCAL_ACCESS.txt (all ignored by Git). MySQL local initialization credentials are in work/runtime/database-local.json. Do not print them, commit them, or reuse the local administrator password in production.
+- Use work/runtime/php/php.exe for Artisan and Composer. Composer PHAR: C:/ProgramData/ComposerSetup/bin/composer.phar. npm.cmd is installed. Current app dependencies are installed under vendor and node_modules (ignored).
+- Read AGENTS.md in the app before edits. Laravel Boost was installed as required by generated project instructions. Testing guidance is under vendor/laravel/boost/.ai/laravel/skill/testing-best-practices/.
+- Standard process tools and node_repl fail with CreateProcessWithLogonW error 1920 in this session. exec_command with require_escalated works. apply_patch works. The browser-control tool failed twice; the GitHub connector is disabled by admin. User is doing hosting UI steps while code work continues. Use Git/Git Credential Manager for authorized repository operations; never log credential values.
+- Automatic approval rejected globally trusting arbitrary reverse proxies. That setting was removed. The current startup retains Laravel's default proxy trust and AppServiceProvider forces HTTPS URL generation only in production. Do not restore global proxy trust as a workaround.
+- Headless local visual checks use the already bundled Playwright package and installed Edge via work/check-preview.cjs. Adapt it once new screens are integrated. This helper is outside the source repository.
+
+### Resume order
+
+First read this checkpoint and git status; honor the user's pause until explicitly resumed. Then finish the new screen wiring/styles/JavaScript, replace test stubs, run meaningful MySQL feature tests and browser checks, and only then push the completed next batch to main. Continue helping the user finish the hosting Env Vars/MySQL/admin setup, verify the actual public site, then obtain free API credentials through private configuration and verify map/weather/email. Finish documentation, screenshots, and rubric checks before the deadline.
 
 ## Local preview in this workspace
 

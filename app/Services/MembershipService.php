@@ -14,6 +14,13 @@ use Illuminate\Validation\ValidationException;
 
 class MembershipService
 {
+    public static function centavos(string $amount): int
+    {
+        [$whole, $fraction] = array_pad(explode('.', $amount, 2), 2, '');
+
+        return ((int) $whole * 100) + (int) str_pad($fraction, 2, '0');
+    }
+
     public function createTransaction(Member $member, string $type): MembershipTransaction
     {
         return DB::transaction(function () use ($member, $type): MembershipTransaction {
