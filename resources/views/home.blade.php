@@ -39,7 +39,7 @@
             <h3>{{ $level->name }}</h3>
             <p class="price"><span>₱</span>{{ number_format($level->fee_cents / 100, 0) }}<small>/ {{ $level->validity_days }} days</small></p>
             <ul>@foreach($level->benefits as $benefit)<li><span aria-hidden="true">↗</span>{{ $benefit }}</li>@endforeach</ul>
-            <span class="plan-footer">TRAIN YOUR WAY <span aria-hidden="true">↗</span></span>
+            <a class="plan-footer" href="{{ route('membership.create', ['level' => $level->id]) }}" aria-label="Apply for {{ $level->name }} membership">CHOOSE {{ strtoupper($level->name) }} <span aria-hidden="true">↗</span></a>
         </article>
     @empty
         <p>Membership plans are currently unavailable. Please check back soon.</p>
@@ -49,6 +49,6 @@
 </section>
 <section class="location-section" id="location">
     <div><p class="eyebrow">02 / YOUR NEIGHBORHOOD. YOUR GYM.</p><h2>BUILT FOR<br><span>TONDO.</span></h2><p>Your routine starts close to home.<br>LooksMaxxing Fitness Academy · Tondo, Manila</p></div>
-    <div class="location-note"><span class="coordinate-mark" aria-hidden="true">↗</span><p class="eyebrow">MANILA, PHILIPPINES</p><h3>Big energy.<br>Local community.</h3><p>A space to put in the work, at your own pace.</p></div>
+    @include('membership.location', ['editable' => false])
 </section>
 @endsection

@@ -25,7 +25,7 @@ class MemberController extends Controller
         }
         $query->when($filters['category'] ?? null, fn ($q, $id) => $q->where('membership_category_id', $id))->when($filters['level'] ?? null, fn ($q, $id) => $q->where('membership_level_id', $id));
 
-        return view('admin.members.index', ['members' => $query->latest()->paginate(15)->withQueryString(), 'categories' => MembershipCategory::query()->orderBy('name')->get(), 'levels' => MembershipLevel::query()->orderBy('fee_cents')->get()]);
+        return view('admin.members.index', ['members' => $query->latest('id')->paginate(15)->withQueryString(), 'categories' => MembershipCategory::query()->orderBy('name')->get(), 'levels' => MembershipLevel::query()->orderBy('fee_cents')->get()]);
     }
 
     public function create(): View
@@ -45,8 +45,9 @@ class MemberController extends Controller
         return redirect()->route('members.show', $member)->with('success', 'Member registered. The application is pending payment.');
     }
 
-    public function show(Member $member): View
+    public function show(Member $member, MembershipService $service): View
     {
+        $service->expireUnpaid($member->id);
         $member->load(['category', 'level', 'transactions.payments']);
 
         return view('admin.members.show', compact('member'));
@@ -62,10 +63,11 @@ class MemberController extends Controller
         return view('admin.members.form', ['member' => $member, 'categories' => MembershipCategory::query()->where('is_active', true)->orWhere('id', $member->membership_category_id)->orderBy('name')->get(), 'levels' => MembershipLevel::query()->where('is_active', true)->orWhere('id', $member->membership_level_id)->orderBy('fee_cents')->get()]);
     }
 
-    public function update(StoreMemberRequest $request, Member $member): RedirectResponse
+    public function update(StoreMemberRequest $request, Member $member, MembershipService $service): RedirectResponse
     {
-        DB::transaction(function () use ($request, $member): void {
+        DB::transaction(function () use ($request, $member, $service): void {
             $member = Member::query()->lockForUpdate()->findOrFail($member->id);
+            $service->expireUnpaid($member->id);
             $data = $request->validated();
             $changesPlan = (int) $data['membership_category_id'] !== $member->membership_category_id || (int) $data['membership_level_id'] !== $member->membership_level_id;
             if ($changesPlan && $member->transactions()->whereIn('status', ['pending', 'paid'])->exists()) {

@@ -12,9 +12,9 @@ use Illuminate\View\View;
 
 class TransactionController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, MembershipService $service): View
     {
-        MembershipTransaction::query()->where('status', 'pending')->where('payment_due_at', '<=', now())->whereDoesntHave('payments')->update(['status' => 'expired']);
+        $service->expireUnpaid();
         $filters = $request->validate(['q' => ['nullable', 'string', 'max:150'], 'status' => ['nullable', Rule::in(['pending', 'paid', 'approved', 'expired', 'cancelled'])]]);
         $query = MembershipTransaction::query()->with('member')->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status));
         if (filled($filters['q'] ?? null)) {
@@ -22,11 +22,14 @@ class TransactionController extends Controller
             $query->where(fn ($query) => $query->where('reference_no', 'like', '%'.$term.'%')->orWhereHas('member', fn ($q) => $q->where('full_name', 'like', '%'.$term.'%')));
         }
 
-        return view('admin.transactions.index', ['transactions' => $query->latest()->paginate(15)->withQueryString()]);
+        return view('admin.transactions.index', ['transactions' => $query->latest('id')->paginate(15)->withQueryString()]);
     }
 
-    public function show(MembershipTransaction $transaction): View
+    public function show(MembershipTransaction $transaction, MembershipService $service): View
     {
+        $service->expireUnpaid($transaction->member_id);
+        $transaction->refresh();
+
         return view('admin.transactions.show', ['transaction' => $transaction->load(['member', 'payments.recorder', 'approver'])]);
     }
 
@@ -58,8 +61,11 @@ class TransactionController extends Controller
         return redirect()->route('transactions.show', $transaction)->with('success', 'Transaction cancelled.');
     }
 
-    public function receipt(MembershipTransaction $transaction): View
+    public function receipt(MembershipTransaction $transaction, MembershipService $service): View
     {
+        $service->expireUnpaid($transaction->member_id);
+        $transaction->refresh();
+
         return view('admin.transactions.receipt', ['transaction' => $transaction->load(['member', 'payments.recorder', 'approver'])]);
     }
 }

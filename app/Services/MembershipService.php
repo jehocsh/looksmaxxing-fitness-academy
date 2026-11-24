@@ -8,12 +8,20 @@ use App\Models\MembershipLevel;
 use App\Models\MembershipTransaction;
 use App\Models\Payment;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class MembershipService
 {
+    public function expireUnpaid(?int $memberId = null): int
+    {
+        return MembershipTransaction::query()->when($memberId, fn ($query) => $query->where('member_id', $memberId))
+            ->where('status', 'pending')->where('payment_due_at', '<=', now())->whereDoesntHave('payments')
+            ->update(['status' => 'expired']);
+    }
+
     public static function centavos(string $amount): int
     {
         [$whole, $fraction] = array_pad(explode('.', $amount, 2), 2, '');
@@ -28,7 +36,7 @@ class MembershipService
             $this->require(! $member->is_deactivated, 'Inactive members cannot create transactions.');
             $this->require(in_array($type, ['application', 'renewal'], true), 'Invalid transaction type.');
             $this->require($type === 'application' ? $member->activated_at === null : $member->activated_at !== null, 'Choose the correct application or renewal transaction.');
-            $member->transactions()->where('status', 'pending')->where('payment_due_at', '<=', now())->whereDoesntHave('payments')->update(['status' => 'expired']);
+            $this->expireUnpaid($member->id);
             $this->require(! $member->transactions()->whereIn('status', ['pending', 'paid'])->exists(), 'This member already has an open transaction.');
             $category = MembershipCategory::query()->lockForUpdate()->findOrFail($member->membership_category_id);
             $level = MembershipLevel::query()->lockForUpdate()->findOrFail($member->membership_level_id);
@@ -55,32 +63,42 @@ class MembershipService
         }, 3);
     }
 
-    public function recordPayment(MembershipTransaction $transaction, int $amountCents, string $method, User $staff, ?string $reference = null): Payment
+    public function recordPayment(MembershipTransaction $transaction, int $amountCents, string $method, User $staff, ?string $reference = null, ?string $submissionToken = null): Payment
     {
-        return DB::transaction(function () use ($transaction, $amountCents, $method, $staff, $reference): Payment {
-            $this->require($staff->is_admin === true, 'An administrator must record the payment.');
-            $transaction = MembershipTransaction::query()->lockForUpdate()->findOrFail($transaction->id);
-            $this->require($transaction->status === 'pending', 'Payments require a pending transaction.');
-            $this->require($transaction->payment_due_at->isFuture() || $transaction->payments()->exists(), 'The payment deadline has passed. Staff must create a new transaction.');
-            $this->require(! $transaction->member->is_deactivated, 'Payments cannot be recorded for inactive members.');
-            $this->require(in_array($method, ['cash', 'gcash', 'bank_transfer'], true), 'Choose a supported payment method.');
-            $reference = filled($reference) ? trim($reference) : null;
-            $this->require($method === 'cash' || $reference !== null, 'GCash and bank transfers require a payment reference.');
-            $this->require($amountCents > 0 && $amountCents <= $transaction->balanceCents(), 'Payment must be positive and cannot exceed the balance.');
-            $payment = $transaction->payments()->create([
-                'receipt_no' => 'RCT-'.Str::upper((string) Str::ulid()),
-                'amount_cents' => $amountCents,
-                'method' => $method,
-                'external_reference' => $reference,
-                'paid_at' => now(),
-                'recorded_by' => $staff->id,
-            ]);
-            if ($transaction->balanceCents() === 0) {
-                $transaction->update(['status' => 'paid']);
-            }
+        try {
+            return DB::transaction(function () use ($transaction, $amountCents, $method, $staff, $reference, $submissionToken): Payment {
+                $this->require($staff->is_admin === true, 'An administrator must record the payment.');
+                $transaction = MembershipTransaction::query()->lockForUpdate()->findOrFail($transaction->id);
+                $reference = filled($reference) ? trim($reference) : null;
+                if ($submissionToken !== null && $existing = $transaction->payments()->where('submission_token', $submissionToken)->first()) {
+                    $this->require($existing->amount_cents === $amountCents && $existing->method === $method && $existing->external_reference === $reference && $existing->recorded_by === $staff->id, 'This payment form has already been used. Reload the transaction to record another payment.');
 
-            return $payment;
-        }, 3);
+                    return $existing;
+                }
+                $this->require($transaction->status === 'pending', 'Payments require a pending transaction.');
+                $this->require($transaction->payment_due_at->isFuture() || $transaction->payments()->exists(), 'The payment deadline has passed. Staff must create a new transaction.');
+                $this->require(! $transaction->member->is_deactivated, 'Payments cannot be recorded for inactive members.');
+                $this->require(in_array($method, ['cash', 'gcash', 'bank_transfer'], true), 'Choose a supported payment method.');
+                $this->require($method === 'cash' || $reference !== null, 'GCash and bank transfers require a payment reference.');
+                $this->require($amountCents > 0 && $amountCents <= $transaction->balanceCents(), 'Payment must be positive and cannot exceed the balance.');
+                $payment = $transaction->payments()->create([
+                    'receipt_no' => 'RCT-'.Str::upper((string) Str::ulid()),
+                    'amount_cents' => $amountCents,
+                    'method' => $method,
+                    'external_reference' => $reference,
+                    'paid_at' => now(),
+                    'recorded_by' => $staff->id,
+                    'submission_token' => $submissionToken,
+                ]);
+                if ($transaction->balanceCents() === 0) {
+                    $transaction->update(['status' => 'paid']);
+                }
+
+                return $payment;
+            }, 3);
+        } catch (UniqueConstraintViolationException $exception) {
+            throw ValidationException::withMessages(['external_reference' => 'This payment reference or form has already been recorded. Check the payment history.']);
+        }
     }
 
     public function approve(MembershipTransaction $transaction, User $staff): MembershipTransaction

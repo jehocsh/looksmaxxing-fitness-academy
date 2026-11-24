@@ -13,5 +13,5 @@
 <tr><td><strong>{{ $member->full_name }}</strong><small class="table-secondary">{{ $member->email }}</small></td><td class="reference-cell">{{ $member->membership_no }}</td><td>{{ $member->category->name }}<small class="table-secondary">{{ $member->level->name }}</small></td><td><span class="pill status-{{ strtolower($member->membershipStatus()) }}">{{ $member->membershipStatus() }}</span></td><td>{{ $member->membership_expires_at?->format('d M Y') ?? 'Not activated' }}</td><td><a class="text-link" href="{{ route('members.show', $member) }}">View ↗</a></td></tr>
 @empty<tr><td colspan="6" class="empty-state"><strong>No members found.</strong><p>Register a member or adjust your search.</p></td></tr>@endforelse
 </tbody></table></div>
-<div class="pagination-wrap">{{ $members->links('pagination::simple-default') }}</div>
+<div class="pagination-wrap">@include('admin.pagination', ['paginator' => $members])</div>
 @endsection

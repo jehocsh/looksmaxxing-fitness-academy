@@ -14,6 +14,6 @@ class StorePaymentRequest extends FormRequest
 
     public function rules(): array
     {
-        return ['amount' => ['required', 'regex:/^\\d{1,6}(\\.\\d{1,2})?$/', 'numeric', 'min:0.01'], 'method' => ['required', Rule::in(['cash', 'gcash', 'bank_transfer'])], 'external_reference' => ['nullable', 'required_unless:method,cash', 'string', 'max:100', Rule::unique('payments')]];
+        return ['submission_token' => ['required', 'uuid'], 'amount' => ['required', 'regex:/^\\d{1,6}(\\.\\d{1,2})?$/', 'numeric', 'min:0.01'], 'method' => ['required', Rule::in(['cash', 'gcash', 'bank_transfer'])], 'external_reference' => ['nullable', 'required_unless:method,cash', 'string', 'max:100']];
     }
 }

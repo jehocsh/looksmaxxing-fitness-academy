@@ -4,15 +4,28 @@ Gym membership management for Tondo, Manila. PHP 8.4, Laravel 13, Blade, and MyS
 
 ## Current checkpoint
 
-Completed: MySQL schema and models, seed plans and discounts, transactional membership service, administrator authentication, public membership landing page, and overview dashboard.
+Completed: MySQL schema and models, seeded plans/discounts, transactional membership service, administrator authentication, public landing page/application form, member registration/search/edit/deactivation/reactivation, category/level management, payment recording, approval, renewals, transaction history, and printable payment records. Responsive styles and form interactions are integrated.
 
-Not yet completed: member/category/level CRUD screens, public application form, payment/renewal screens, printable receipts, live maps/weather/email, and public deployment. The transaction service is tested independently of those future screens. Do not present this checkpoint as the completed project.
+Still pending: configure and verify the actual Google Maps Demo, OpenWeather, and Brevo keys; verify production staff login and the updated deployed workflow. The integration adapters are implemented and tested with controlled provider responses; that does not verify real email delivery or live API access.
 
-EthioDeploy Free is the deployment target. The owner has now created the account and hosting project. The private GitHub source repository is https://github.com/jehocsh/looksmaxxing-fitness-academy (deployed branch: main). The assigned public address is https://looksmaxxing-fitness-academy.ethiodeploy.app. The last observed hosting screenshot showed BUILDING from commit 8171a4d; a successful public deployment has NOT been verified.
+EthioDeploy Free is the deployment target. The private GitHub source repository is https://github.com/jehocsh/looksmaxxing-fitness-academy (deployed branch: main). The public address is https://looksmaxxing-fitness-academy.ethiodeploy.app. On November 25 the owner confirmed the project is live, the free MySQL addon is added, and production settings are saved. An HTTP check returned 200 with the LooksMaxxing page; the latest screen changes still need uploading and deployment verification.
+
+### November 25 resume update
+
+- The user explicitly resumed development. The old pause instructions below are historical.
+- Use `exec_command` with `require_escalated`: the normal Windows runner still fails with error 1920, while the alternate runner works. File edits through `apply_patch` work too. No need to repeat the earlier blocked-access loop.
+- Wired the dashboard into the admin layout; added public plan/application links, responsive admin/forms/catalog/print styles, discounted fee preview, optional coordinates/clear action, Google Maps callback, weather widget, confirmation prompts, and print action.
+- Expired unpaid applications are refreshed on dashboard, transaction, and profile reads. Existing inactive category/level assignments can be retained when editing contact details. Open transactions prevent changing the member's plan.
+- Added a unique nullable `payments.submission_token` migration. Payment forms carry a UUID; replaying a submitted cash/transfer form returns its existing receipt. A different payload with the same form token is rejected. Duplicate transfer references return a validation error.
+- Replaced the two generated test stubs with actual HTTP and integration coverage. Current complete MySQL suite: 57 tests, 277 assertions passed. Frontend production build and formatting passed. Desktop and 390px mobile browser checks passed with zero JavaScript errors, including live fee quotes, optional coordinate clearing, staff registration, payment, approval, receipt printing, and renewal. Screenshots and a sample receipt PDF are in the parent outputs folder. Browser checks created clearly named Demo Member records with example.test emails in the local database only.
+- The owner confirmed NO map/weather/email keys are configured yet and needs setup instructions. Guide them through free accounts and private EthioDeploy Env Vars; never ask for keys in chat. Use the Google Maps Demo Key (personal Google account, no billing) for the academic prototype, OpenWeather's free Current Weather API, and Brevo Free with a verified sender.
+- Production first-admin configuration still needs confirmation: ADMIN_EMAIL and ADMIN_PASSWORD (minimum 12 characters) privately in host settings. Existing admins are not overwritten by bootstrap.
+
+## Historical November 24 checkpoint
 
 ## PAUSED: resume checkpoint (November 24, 2026)
 
-The user explicitly requested STOP because their usage was running out. Do not resume work until they ask. They want to continue the same project later, without repeating setup or decisions. Their deadline is November 25, 2026 at 11:59 PM, Manila time (UTC+8).
+The user previously requested STOP because their usage was running out, then explicitly resumed on November 25. Their deadline is November 25, 2026 at 11:59 PM, Manila time (UTC+8). The following notes retain the earlier setup history; the current checkpoint above takes precedence.
 
 ### Agreed product and constraints
 

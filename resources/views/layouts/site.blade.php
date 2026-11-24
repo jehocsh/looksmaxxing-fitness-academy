@@ -19,6 +19,7 @@
     <nav aria-label="Main navigation">
         <a href="{{ route('home') }}#plans">Memberships</a>
         <a href="{{ route('home') }}#location">Find us</a>
+        <a href="{{ route('membership.create') }}">Join the academy</a>
         @auth
             <a class="button button-small" href="{{ route('dashboard') }}">Dashboard <span aria-hidden="true">↗</span></a>
         @else
@@ -28,5 +29,7 @@
 </header>
 <main id="main">@yield('content')</main>
 <footer class="site-footer"><a class="footer-name" href="{{ route('home') }}">LOOKSMAXXING<span>✳</span></a><p>Fitness Academy · Tondo, Manila</p><span>SHOW UP FOR YOURSELF.</span></footer>
+<script src="{{ asset('js/app.js') }}"></script>
+@stack('scripts')
 </body>
 </html>
