@@ -6,9 +6,12 @@ use App\Models\MembershipTransaction;
 use App\Notifications\Channels\BrevoChannel;
 use App\Notifications\MembershipApplicationSubmitted;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class IntegrationTest extends TestCase
@@ -17,7 +20,7 @@ class IntegrationTest extends TestCase
 
     public function test_weather_returns_only_display_fields_and_reuses_cached_response(): void
     {
-        config(['services.openweather.key' => 'test-weather-key']);
+        config(['services.openweather.key' => ' test-weather-key ']);
         Cache::flush();
         Http::preventStrayRequests();
         Http::fake(['api.openweathermap.org/data/2.5/weather*' => Http::response(['name' => 'Manila', 'main' => ['temp' => 30.5, 'humidity' => 70], 'weather' => [['description' => 'scattered clouds']], 'private' => 'not-exposed'])]);
@@ -43,7 +46,7 @@ class IntegrationTest extends TestCase
         config(['services.openweather.key' => null]);
         Http::preventStrayRequests();
 
-        $this->getJson(route('weather.show', ['lat' => 14.6, 'lon' => 120.9]))->assertServiceUnavailable()->assertJsonPath('message', 'Weather is currently unavailable.');
+        $this->getJson(route('weather.show', ['lat' => 14.6, 'lon' => 120.9]))->assertServiceUnavailable()->assertJsonPath('message', 'Weather is currently unavailable.')->assertJsonPath('code', 'weather_not_configured');
 
         Http::assertNothingSent();
     }
@@ -54,8 +57,53 @@ class IntegrationTest extends TestCase
         Cache::flush();
         Http::preventStrayRequests();
         Http::fake(['api.openweathermap.org/data/2.5/weather*' => Http::response(['message' => 'secret-weather-key'], 401)]);
+        Log::spy();
 
-        $this->getJson(route('weather.show', ['lat' => 14.6, 'lon' => 120.9]))->assertServiceUnavailable()->assertDontSee('secret-weather-key');
+        $this->getJson(route('weather.show', ['lat' => 14.6, 'lon' => 120.9]))->assertServiceUnavailable()->assertJsonPath('code', 'weather_authentication_failed')->assertDontSee('secret-weather-key');
+
+        Http::assertSentCount(1);
+        Log::shouldHaveReceived('warning')->once()->with('Weather request failed.', ['code' => 'weather_authentication_failed', 'provider_status' => 401]);
+    }
+
+    public static function weatherProviderFailures(): array
+    {
+        return ['rate limit' => [429, 'weather_rate_limited'], 'provider failure' => [500, 'weather_provider_error']];
+    }
+
+    #[DataProvider('weatherProviderFailures')]
+    public function test_weather_reports_safe_provider_failure_code(int $status, string $code): void
+    {
+        config(['services.openweather.key' => 'secret-weather-key']);
+        Cache::flush();
+        Http::preventStrayRequests();
+        Http::fake(['api.openweathermap.org/data/2.5/weather*' => Http::response(['message' => 'secret-weather-key'], $status)]);
+
+        $this->getJson(route('weather.show', ['lat' => 14.6, 'lon' => 120.9]))->assertServiceUnavailable()->assertJsonPath('code', $code)->assertDontSee('secret-weather-key');
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_weather_connection_failure_does_not_expose_request_url_or_key(): void
+    {
+        config(['services.openweather.key' => 'secret-weather-key']);
+        Cache::flush();
+        Http::preventStrayRequests();
+        Http::fake(['api.openweathermap.org/data/2.5/weather*' => fn () => throw new ConnectionException('https://api.openweathermap.org/?appid=secret-weather-key')]);
+        Log::spy();
+
+        $this->getJson(route('weather.show', ['lat' => 14.6, 'lon' => 120.9]))->assertServiceUnavailable()->assertJsonPath('code', 'weather_connection_failed')->assertDontSee('secret-weather-key');
+
+        Log::shouldHaveReceived('warning')->once()->with('Weather request failed.', ['code' => 'weather_connection_failed', 'provider_status' => null]);
+    }
+
+    public function test_malformed_weather_response_returns_safe_error_instead_of_displaying_invalid_data(): void
+    {
+        config(['services.openweather.key' => 'secret-weather-key']);
+        Cache::flush();
+        Http::preventStrayRequests();
+        Http::fake(['api.openweathermap.org/data/2.5/weather*' => Http::response(['name' => 'Manila'])]);
+
+        $this->getJson(route('weather.show', ['lat' => 14.6, 'lon' => 120.9]))->assertServiceUnavailable()->assertJsonPath('code', 'weather_invalid_response');
 
         Http::assertSentCount(1);
     }
