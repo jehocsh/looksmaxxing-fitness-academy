@@ -7,10 +7,12 @@ use App\Notifications\Channels\BrevoChannel;
 use App\Notifications\MembershipApplicationSubmitted;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -115,7 +117,13 @@ class IntegrationTest extends TestCase
         $transaction = MembershipTransaction::factory()->create();
         $transaction->member->update(['full_name' => '<script>alert(1)</script>']);
         Http::preventStrayRequests();
-        Http::fake(['https://api.brevo.com/v3/smtp/email' => Http::response(['messageId' => 'test-message'], 201)]);
+        Http::fake(['https://api.brevo.com/v3/smtp/email' => function ($request) {
+            $key = $request['headers']['idempotencyKey'];
+
+            return Str::isUuid($key) && strlen($key) === 36
+                ? Http::response(['messageId' => 'test-message'], 201)
+                : Http::response(['code' => 'out_of_range', 'message' => 'Idempotency key exceeds char limit'], 400);
+        }]);
         $notifiable = (new AnonymousNotifiable)->route('mail', $transaction->member->email);
         $notification = new MembershipApplicationSubmitted($transaction->id);
 
@@ -123,7 +131,37 @@ class IntegrationTest extends TestCase
         app(BrevoChannel::class)->send($notifiable, $notification);
 
         Http::assertSentCount(1);
-        Http::assertSent(fn ($request) => $request->hasHeader('api-key', 'test-brevo-key') && $request['headers']['idempotencyKey'] === 'membership-'.$transaction->reference_no && $request['to'][0]['email'] === $transaction->member->email && str_contains($request['htmlContent'], '&lt;script&gt;') && ! str_contains($request['htmlContent'], '<script>alert(1)</script>'));
+        Http::assertSent(fn ($request) => $request->hasHeader('api-key', 'test-brevo-key') && Str::isUuid($request['headers']['idempotencyKey']) && $request['to'][0]['email'] === $transaction->member->email && str_contains($request['htmlContent'], '&lt;script&gt;') && ! str_contains($request['htmlContent'], '<script>alert(1)</script>'));
+        $this->assertNotNull($transaction->refresh()->notification_sent_at);
+    }
+
+    public function test_brevo_retry_reuses_the_same_short_uuid_after_a_provider_failure(): void
+    {
+        config(['services.brevo.key' => 'test-brevo-key', 'services.brevo.sender_email' => 'sender@example.test']);
+        $transaction = MembershipTransaction::factory()->create();
+        $notifiable = (new AnonymousNotifiable)->route('mail', $transaction->member->email);
+        $notification = new MembershipApplicationSubmitted($transaction->id);
+        $keys = [];
+        Http::preventStrayRequests();
+        Http::fake(['https://api.brevo.com/v3/smtp/email' => function ($request) use (&$keys) {
+            $keys[] = $request['headers']['idempotencyKey'];
+
+            return Http::response(['messageId' => 'test-message'], count($keys) === 1 ? 500 : 201);
+        }]);
+
+        try {
+            app(BrevoChannel::class)->send($notifiable, $notification);
+            $this->fail('Expected the simulated provider failure.');
+        } catch (RequestException $exception) {
+            $this->assertSame(500, $exception->response->status());
+        }
+        $this->assertNull($transaction->refresh()->notification_sent_at);
+        app(BrevoChannel::class)->send($notifiable, $notification);
+
+        $this->assertCount(2, $keys);
+        $this->assertSame($keys[0], $keys[1]);
+        $this->assertTrue(Str::isUuid($keys[0]));
+        $this->assertSame(36, strlen($keys[0]));
         $this->assertNotNull($transaction->refresh()->notification_sent_at);
     }
 

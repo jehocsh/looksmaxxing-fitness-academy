@@ -4,13 +4,14 @@ namespace App\Notifications\Channels;
 
 use App\Notifications\MembershipApplicationSubmitted;
 use Illuminate\Support\Facades\Http;
+use Ramsey\Uuid\Uuid;
 use RuntimeException;
 
 class BrevoChannel
 {
     public function send(object $notifiable, MembershipApplicationSubmitted $notification): void
     {
-        $sender = config('services.brevo.sender_email');
+        $sender = trim((string) config('services.brevo.sender_email'));
         if (blank($sender)) {
             throw new RuntimeException('The Brevo sender must be configured.');
         }
@@ -19,13 +20,13 @@ class BrevoChannel
             return;
         }
         $recipient = $notifiable->routeNotificationFor('mail', $notification);
-        $response = Http::acceptJson()->withHeaders(['api-key' => config('services.brevo.key')])->timeout(10)
+        $response = Http::acceptJson()->withHeaders(['api-key' => trim((string) config('services.brevo.key'))])->timeout(10)
             ->post('https://api.brevo.com/v3/smtp/email', [
                 'sender' => ['name' => config('services.brevo.sender_name'), 'email' => $sender],
                 'to' => [['email' => $recipient, 'name' => $transaction->member->full_name]],
                 'subject' => 'LooksMaxxing application received',
                 'htmlContent' => view('emails.application', compact('transaction'))->render(),
-                'headers' => ['idempotencyKey' => 'membership-'.$transaction->reference_no],
+                'headers' => ['idempotencyKey' => Uuid::uuid5(Uuid::NAMESPACE_URL, 'looksmaxxing:application:'.$transaction->reference_no)->toString()],
             ])->throw();
         if ($response->successful()) {
             $transaction->update(['notification_sent_at' => now()]);

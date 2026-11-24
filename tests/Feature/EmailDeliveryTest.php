@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -110,5 +111,73 @@ class EmailDeliveryTest extends TestCase
         Http::fake(['https://api.brevo.com/v3/smtp/statistics/aggregatedReport*' => fn () => throw new ConnectionException('private-key-value')]);
 
         $this->actingAs(User::factory()->create(['is_admin' => true]))->get(route('email-status'))->assertOk()->assertSee('Cannot connect to Brevo')->assertDontSee('private-key-value');
+    }
+
+    public function test_admin_can_requeue_failed_application_confirmation_once_and_worker_can_send_it(): void
+    {
+        $this->freezeTime();
+        config(['queue.default' => 'database', 'services.brevo.key' => 'test-brevo-key', 'services.brevo.sender_email' => 'sender@example.test']);
+        $category = MembershipCategory::factory()->create();
+        $level = MembershipLevel::factory()->create();
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://api.brevo.com/v3/smtp/statistics/aggregatedReport*' => Http::response(['requests' => 0], 200),
+            'https://api.brevo.com/v3/smtp/email' => Http::sequence()
+                ->push(['code' => 'out_of_range', 'message' => 'Idempotency key exceeds char limit'], 400)
+                ->push(['code' => 'out_of_range', 'message' => 'Idempotency key exceeds char limit'], 400)
+                ->push(['code' => 'out_of_range', 'message' => 'Idempotency key exceeds char limit'], 400)
+                ->push(['messageId' => 'retry-success'], 201),
+        ]);
+        $this->post(route('membership.store'), ['full_name' => 'Retry Applicant', 'email' => 'retry@example.test', 'membership_category_id' => $category->id, 'membership_level_id' => $level->id, 'consent' => '1'])->assertSessionHas('application_reference');
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            $this->artisan('queue:work', ['connection' => 'database', '--once' => true, '--no-interaction' => true])->assertSuccessful();
+            $this->travel(61)->seconds();
+        }
+        $this->assertDatabaseCount('failed_jobs', 1);
+        $uuid = DB::table('failed_jobs')->value('uuid');
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $this->get(route('email-status'))->assertOk()->assertSee('Retry confirmation')->assertSee('Email request format error; deploy the latest update and retry');
+
+        $this->post(route('email-status.retry', $uuid))->assertRedirect(route('email-status'))->assertSessionHasNoErrors();
+
+        $this->assertDatabaseCount('jobs', 1);
+        $this->assertDatabaseCount('failed_jobs', 0);
+        $this->post(route('email-status.retry', $uuid))->assertNotFound();
+        $this->assertDatabaseCount('jobs', 1);
+        $this->artisan('queue:work', ['connection' => 'database', '--once' => true, '--no-interaction' => true])->assertSuccessful();
+        $this->assertNotNull(MembershipTransaction::query()->sole()->notification_sent_at);
+        $this->assertDatabaseCount('jobs', 0);
+        $this->assertDatabaseCount('members', 1);
+    }
+
+    public function test_email_retry_requires_administrator(): void
+    {
+        $uuid = (string) Str::uuid();
+
+        $this->post(route('email-status.retry', $uuid))->assertRedirect(route('login'));
+        $this->actingAs(User::factory()->create())->post(route('email-status.retry', $uuid))->assertForbidden();
+
+        $this->assertDatabaseCount('jobs', 0);
+    }
+
+    public function test_email_retry_rejects_unrelated_failed_jobs(): void
+    {
+        config(['services.brevo.key' => 'test-brevo-key', 'services.brevo.sender_email' => 'sender@example.test']);
+        $uuid = (string) Str::uuid();
+        DB::table('failed_jobs')->insert(['uuid' => $uuid, 'connection' => 'database', 'queue' => 'default', 'payload' => json_encode(['displayName' => 'OtherJob']), 'exception' => 'Unrelated failure', 'failed_at' => now()]);
+
+        $this->actingAs(User::factory()->create(['is_admin' => true]))->post(route('email-status.retry', $uuid))->assertUnprocessable();
+
+        $this->assertDatabaseCount('failed_jobs', 1);
+        $this->assertDatabaseCount('jobs', 0);
+    }
+
+    public function test_email_retry_requires_configured_provider(): void
+    {
+        config(['services.brevo.key' => null, 'services.brevo.sender_email' => null]);
+
+        $this->actingAs(User::factory()->create(['is_admin' => true]))->post(route('email-status.retry', (string) Str::uuid()))->assertSessionHasErrors('email');
+
+        $this->assertDatabaseCount('jobs', 0);
     }
 }

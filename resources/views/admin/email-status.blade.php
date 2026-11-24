@@ -16,4 +16,12 @@
         <dt>Latest failure</dt><dd>{{ $lastFailure }}</dd>
     </dl><p>Pending emails should be picked up by the app's background worker. If this count stays above zero, check the start command and deployment logs.</p><p>In EthioDeploy Settings, the start command should be <code>sh start-ethiodeploy.sh</code>. Save any correction and redeploy.</p><p class="muted">This page only checks the connection and queue. Refreshing it does not send an email.</p></article>
 </div>
+@if($retryableEmails->isNotEmpty())
+<div class="section-heading compact"><h2>FAILED APPLICATION EMAILS</h2></div>
+<div class="table-wrap"><table><thead><tr><th>Failed at</th><th>Attempt reference</th><th>Action</th></tr></thead><tbody>
+@foreach($retryableEmails as $email)
+<tr><td>{{ $email['failed_at'] }}</td><td class="reference-cell">{{ $email['uuid'] }}</td><td><form method="post" action="{{ route('email-status.retry', $email['uuid']) }}" data-confirm="Retry this failed application confirmation email?">@csrf<button class="button button-small" type="submit">Retry confirmation ↗</button></form></td></tr>
+@endforeach
+</tbody></table></div>
+@endif
 @endsection

@@ -26,6 +26,7 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware(['auth', EnsureAdmin::class])->group(function (): void {
     Route::get('/admin', DashboardController::class)->name('dashboard');
     Route::get('/admin/email-status', EmailStatusController::class)->middleware('throttle:10,1')->name('email-status');
+    Route::post('/admin/email-status/retry/{uuid}', [EmailStatusController::class, 'retry'])->whereUuid('uuid')->middleware('throttle:5,1')->name('email-status.retry');
     Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
     Route::resource('admin/members', MemberController::class);
     Route::post('/admin/members/{member}/reactivate', [MemberController::class, 'reactivate'])->name('members.reactivate');
