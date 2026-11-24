@@ -8,7 +8,7 @@ Completed: MySQL schema and models, seeded plans/discounts, transactional member
 
 Still pending: configure and verify the actual Google Maps Demo, OpenWeather, and Brevo keys; verify production staff login and the updated deployed workflow. The integration adapters are implemented and tested with controlled provider responses; that does not verify real email delivery or live API access.
 
-EthioDeploy Free is the deployment target. The private GitHub source repository is https://github.com/jehocsh/looksmaxxing-fitness-academy (deployed branch: main). The public address is https://looksmaxxing-fitness-academy.ethiodeploy.app. On November 25 the owner confirmed the project is live, the free MySQL addon is added, and production settings are saved. An HTTP check returned 200 with the LooksMaxxing page; the latest screen changes still need uploading and deployment verification.
+EthioDeploy Free is the deployment target. The private GitHub source repository is https://github.com/jehocsh/looksmaxxing-fitness-academy (deployed branch: main). The public address is https://looksmaxxing-fitness-academy.ethiodeploy.app. On November 25 the owner confirmed the project is live, the free MySQL addon is added, and production settings are saved. The completed screen implementation was pushed as 19ce8bb, and the owner confirmed deployment. Public home, application, JavaScript, and login URLs returned 200. A browser check of the live site verified the Student/Silver PHP900 fee, HTTPS form action, 390px layout, and zero JavaScript errors. No production member or payment data was changed during verification.
 
 ### November 25 resume update
 
@@ -20,6 +20,8 @@ EthioDeploy Free is the deployment target. The private GitHub source repository 
 - Replaced the two generated test stubs with actual HTTP and integration coverage. Current complete MySQL suite: 57 tests, 277 assertions passed. Frontend production build and formatting passed. Desktop and 390px mobile browser checks passed with zero JavaScript errors, including live fee quotes, optional coordinate clearing, staff registration, payment, approval, receipt printing, and renewal. Screenshots and a sample receipt PDF are in the parent outputs folder. Browser checks created clearly named Demo Member records with example.test emails in the local database only.
 - The owner confirmed NO map/weather/email keys are configured yet and needs setup instructions. Guide them through free accounts and private EthioDeploy Env Vars; never ask for keys in chat. Use the Google Maps Demo Key (personal Google account, no billing) for the academic prototype, OpenWeather's free Current Weather API, and Brevo Free with a verified sender.
 - Production first-admin configuration still needs confirmation: ADMIN_EMAIL and ADMIN_PASSWORD (minimum 12 characters) privately in host settings. Existing admins are not overwritten by bootstrap.
+- The owner has been asked whether production staff sign-in works. Await their answer before deciding if admin bootstrap needs attention.
+- Next user setup: open https://developers.google.com/maps/documentation/javascript/demo-key with a personal Google account, get the no-billing Demo Key, and save it privately as GOOGLE_MAPS_KEY in EthioDeploy Env Vars. Then guide OpenWeather Current Weather (OPENWEATHER_KEY) and Brevo Free (BREVO_API_KEY, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME), verify the sender, redeploy, and test real integration operation. Do not treat mocked integration tests as live delivery evidence.
 
 ## Historical November 24 checkpoint
 
