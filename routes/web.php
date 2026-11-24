@@ -4,6 +4,7 @@ use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EmailStatusController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LevelController;
 use App\Http\Controllers\MemberController;
@@ -24,6 +25,7 @@ Route::middleware('guest')->group(function (): void {
 });
 Route::middleware(['auth', EnsureAdmin::class])->group(function (): void {
     Route::get('/admin', DashboardController::class)->name('dashboard');
+    Route::get('/admin/email-status', EmailStatusController::class)->middleware('throttle:10,1')->name('email-status');
     Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
     Route::resource('admin/members', MemberController::class);
     Route::post('/admin/members/{member}/reactivate', [MemberController::class, 'reactivate'])->name('members.reactivate');
